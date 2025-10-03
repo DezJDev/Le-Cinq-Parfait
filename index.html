@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎯 Cinq Parfait - Compteur Synchronisé</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+    <div class="container">
+        <h1>🎯 Le Cinq Parfait</h1>
+        <div id="counter-display" class="counter">10.00</div>
+        <div id="status-message" class="status">Appuyez sur le bouton Arduino pour commencer.</div>
+
+        <p class="hint">
+            <strong>Règle :</strong> Stoppez le compteur (via le bouton) pour qu'il soit exactement à 5.00
+        </p>
+    </div>
+
+    <script>
+        const counterDisplay = document.getElementById('counter-display');
+        const statusMessage = document.getElementById('status-message');
+        const socket = new WebSocket('ws://' + window.location.host);
+
+        socket.onopen = function (e) {
+            console.log("[open] Connexion WebSocket établie.");
+        };
+
+        socket.onmessage = function (event) {
+            const data = JSON.parse(event.data);
+            const counter = data.counter;
+            const state = data.state;
+
+            counterDisplay.textContent = counter;
+
+            switch (state) {
+                case 'WAITING':
+                    statusMessage.textContent = "Prêt. Appuyez sur le bouton pour LANCER.";
+                    counterDisplay.className = 'counter';
+                    break;
+                case 'RUNNING':
+                    statusMessage.textContent = "CHRONO EN COURS... Stoppez-le au bon moment !";
+                    counterDisplay.className = 'counter running';
+                    break;
+                case 'STOPPED_WIN':
+                    statusMessage.textContent = "🎉 VICTOIRE ! Vous avez stoppé le compteur à 5.00 !";
+                    counterDisplay.className = 'counter win';
+                    break;
+                case 'STOPPED_FAIL':
+                    if (counter === "0.00") {
+                        statusMessage.textContent = "❌ TROP TARD ! Il est arrivé à 5.00 et s'est arrêté. Appuyez pour réinitialiser.";
+                    } else {
+                        statusMessage.textContent = `🚫 ÉCHEC ! Stoppé à ${counter}. Ce n'est pas 5.00. Appuyez pour réinitialiser.`;
+                    }
+                    counterDisplay.className = 'counter fail';
+                    break;
+                default:
+                    statusMessage.textContent = "Analyse du résultat...";
+                    counterDisplay.className = 'counter';
+                    break;
+            }
+        };
+
+        socket.onclose = function (event) {
+            if (event.wasClean) {
+                console.log(`[close] Connexion fermée proprement, code=${event.code} raison=${event.reason}`);
+            } else {
+                console.warn('[close] Connexion brutalement interrompue. Le serveur est-il éteint ?');
+                statusMessage.textContent = "🚨 DÉCONNEXION du serveur. Veuillez le relancer.";
+                counterDisplay.className = 'counter fail';
+            }
+        };
+
+        socket.onerror = function (error) {
+            console.error(`[error] ${error.message}`);
+        };
+    </script>
+</body>
+
+</html>
